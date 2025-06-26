@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>百合宾果</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: "Segoe UI", sans-serif;
+            background-color: #f9f9f9;
+        }
+
+        #header {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            background: white;
+            z-index: 10;
+            padding: 15px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        #grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            margin-top: 140px;
+            /* 足够空间避免被 header 遮挡 */
+            border-collapse: collapse;
+        }
+
+        .grid-cell {
+            border: 2px solid black;
+            background-color: white;
+            position: relative;
+            transition: border 0.2s ease;
+        }
+
+        .image-container {
+            position: relative;
+            padding-top: 141.4%;
+        }
+
+        .image {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            cursor: pointer;
+        }
+
+        .image-container.no-image {
+            position: relative;
+            background-color: #eee;
+        }
+
+        .image-container.no-image::before {
+            content: "无图片";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #999;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .data-container {
+            padding: 5px;
+            text-align: center;
+            font-size: 14px;
+            background: #f0f0f0;
+        }
+
+        .grid-cell.red {
+            border: 3px solid red;
+        }
+
+        .grid-cell.orange {
+            border: 3px solid orange;
+        }
+
+        .grid-cell.yellow {
+            border: 3px solid gold;
+        }
+
+        .grid-cell.blue {
+            border: 3px solid blue;
+        }
+
+        .grid-cell.black {
+            border: 3px solid black;
+        }
+
+        .color-popup {
+            position: absolute;
+            display: none;
+            background: white;
+            border: 1px solid #ccc;
+            padding: 5px;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
+            z-index: 99;
+        }
+
+        .color-button {
+            width: 24px;
+            height: 24px;
+            border: none;
+            margin: 4px;
+            cursor: pointer;
+            border-radius: 50%;
+            position: relative;
+        }
+
+        .color-button.none {
+            background: transparent;
+            border: 1px solid #999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            color: #999;
+        }
+
+        .color-button.none::after {
+            content: "×";
+        }
+
+        #legend span {
+            margin-right: 10px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="header">
+        <h3>百合宾果</h3>
+        <div id="legend">
+            <span style="color: red;">●</span> 最爱
+            <span style="color: orange;">●</span> 喜欢
+            <span style="color: gold;">●</span> 一般
+            <span style="color: blue;">●</span> 不喜欢
+            <span style="color: black;">●</span> 讨厌
+        </div>
+    </div>
+
+    <div id="grid"></div>
+
+    <div id="popup" class="color-popup">
+        <button class="color-button red" style="background:red;" data-color="red"></button>
+        <button class="color-button orange" style="background:orange;" data-color="orange"></button>
+        <button class="color-button yellow" style="background:gold;" data-color="yellow"></button>
+        <button class="color-button blue" style="background:blue;" data-color="blue"></button>
+        <button class="color-button black" style="background:black;" data-color="black"></button>
+        <button class="color-button none" data-color="none"></button>
+    </div>
+
+    <script>
+        const grid = document.getElementById("grid");
+        const popup = document.getElementById("popup");
+        let activeCell = null;
+        const colorClasses = ["red", "orange", "yellow", "blue", "black"];
+        function buildGrid(ids) {
+            ids.forEach((id) => {
+                const cell = document.createElement("div");
+                cell.className = "grid-cell";
+                cell.dataset.id = id;
+
+                const imageContainer = document.createElement("div");
+                imageContainer.className = "image-container";
+                imageContainer.dataset.picture = id;
+
+                const img = document.createElement("img");
+                img.className = "image";
+                img.src = "https://via.placeholder.com/150";
+
+                img.addEventListener("click", () => {
+                    activeCell = cell;
+                    popup.style.display = "block";
+                    const rect = cell.getBoundingClientRect();
+                    popup.style.left = `${rect.left + window.scrollX}px`;
+                    popup.style.top = `${rect.top + window.scrollY}px`;
+                });
+
+                imageContainer.appendChild(img);
+
+                const dataContainer = document.createElement("div");
+                dataContainer.className = "data-container";
+                dataContainer.dataset.id = id;
+                dataContainer.textContent = "加载中...";
+
+                cell.appendChild(imageContainer);
+                cell.appendChild(dataContainer);
+                grid.appendChild(cell);
+
+                // 加载图片
+                fetch(`https://api.bgm.tv/v0/subjects/${id}`)
+                    .then((res) => res.json())
+                    .then((data) => {
+                        if (data.images?.large) {
+                            img.src = data.images.large;
+                        } else {
+                            imageContainer.classList.add("no-image");
+                        }
+                    })
+                    .catch(() => {
+                        imageContainer.classList.add("no-image");
+                    });
+
+                // 加载标题
+                fetch(`https://api.bgm.tv/v0/subjects/${id}`)
+                    .then((res) => res.json())
+                    .then((data) => {
+                        dataContainer.innerHTML = data.name_cn || data.name || "无标题";
+                    })
+                    .catch(() => {
+                        dataContainer.innerHTML = "加载失败";
+                    });
+            });
+        }
+        // 用api获取数据 因为api的排序有问题所以在本地爬取数据后从localhost传入
+        // fetch('https://api.bgm.tv/v0/search/subjects?limit=20', {
+        //     method: 'POST',
+        //     headers: {
+        //         'accept': 'application/json',
+        //         'Content-Type': 'application/json'
+        //     },
+        //     body: JSON.stringify({
+        //         "sort": "rank",
+        //         filter: {
+        //             type: [1],
+        //             tag: ["百合", "漫画"],
+        //             nsfw: true
+        //         }
+        //     })
+        // })
+        //     .then(response => {
+        //         if (!response.ok) throw new Error('网络请求失败: ' + response.status);
+        //         return response.json();
+        //     })
+        //     .then(data => {
+        //         const ids = data.data.map(item => item.id);
+        //         buildGrid(ids); // ⬅️ 传入 ids，开始处理页面显示
+        //     })
+        //     .catch(error => {
+        //         console.error('请求出错:', error);
+        //     });
+
+        // 从本地服务器获取数据 需要先在本地爬取然后部署在flask上
+        fetch('http://localhost:5000/get_ids')
+            .then(res => res.json())
+            .then(ids => {
+                buildGrid(ids);
+            });
+        // 以下为爬取的参考数据
+        // ids = [
+        //     "132936",
+        //         "81467",
+        //         "370560",
+        //         "254437",
+        //         "283254",
+        //         "81475",
+        //         "279871",
+        //         "128202",
+        //         "285054",
+        //         "306812",
+        //         "239664",
+        //         "300270",
+        //         "292901",
+        //         "336489",
+        //         "175554",
+        //         "206284",
+        //         "255996",
+        //         "146458",
+        //         "306906",
+        //         "293389",
+        //         "230961",
+        //         "285472",
+        //         "11536",
+        //         "5668",
+        //         "283417",
+        //         "19696",
+        //         "280441",
+        //         "259839",
+        //         "241088",
+        //         "65659",
+        //         "266396",
+        //         "313877",
+        //         "218127",
+        //         "230710",
+        //         "198384",
+        //         "144523",
+        //         "294659",
+        //         "320495",
+        //         "4134",
+        //         "261543",
+        //         "84003",
+        //         "12248",
+        //         "148732",
+        //         "301383",
+        //         "311834",
+        //         "2056",
+        //         "212271",
+        //         "48977",
+        //         "270499",
+        //         "73503",
+        //         "62917",
+        //         "122272",
+        //         "263848",
+        //         "193081",
+        //         "186795",
+        //         "4171",
+        //         "285217",
+        //         "88290",
+        //         "275264",
+        //         "286653",
+        //         "306888",
+        //         "373779",
+        //         "270436",
+        //         "188111",
+        //         "305746",
+        //         "408902",
+        //         "221107",
+        //         "111275",
+        //         "119708",
+        //         "310707",
+        //         "257720",
+        //         "269903",
+        //         "320535",
+        //         "308152",
+        //         "103838",
+        //         "372591",
+        //         "210720",
+        //         "420817",
+        //         "127718",
+        //         "127475",
+        //         "284512",
+        //         "338969",
+        //         "198207",
+        //         "303906",
+        //         "140536",
+        //         "37918",
+        //         "410492",
+        //         "188575",
+        //         "310763",
+        //         "253264",
+        //         "376352",
+        //         "239665",
+        //         "212535",
+        //         "21681",
+        //         "237342",
+        //         "311833",
+        //         "5968",
+        //         "484776",
+        //         "439530",
+        //         "340294",
+        //         "304553",
+        //         "282923",
+        //         "373162",
+        //         "297313",
+        //         "223311",
+        //         "270196",
+        //         "195219",
+        //         "219948",
+        //         "228643",
+        //         "77058",
+        //         "70122",
+        //         "205242",
+        //         "1713",
+        //         "1224",
+        //         "444471",
+        //         "319792",
+        //         "280053",
+        //         "348056",
+        //         "198385",
+        //         "11628"
+        // ];
+        // buildGrid(ids);
+        // 颜色按钮点击处理逻辑
+        document.querySelectorAll(".color-button").forEach((btn) => {
+            btn.addEventListener("click", () => {
+                if (!activeCell) return;
+
+                // 移除旧的颜色 class
+                colorClasses.forEach(c => activeCell.classList.remove(c));
+
+                const color = btn.dataset.color;
+
+                if (color !== "none") {
+                    activeCell.classList.add(color);
+                }
+
+                popup.style.display = "none";
+                activeCell = null;
+            });
+        });
+
+        // 点击页面其他区域时关闭 popup
+        document.addEventListener("click", (e) => {
+            if (!popup.contains(e.target) && !e.target.classList.contains("image")) {
+                popup.style.display = "none";
+                activeCell = null;
+            }
+        });
+
+    </script>
+</body>
+
+</html>
